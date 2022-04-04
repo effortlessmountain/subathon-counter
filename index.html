@@ -9,6 +9,23 @@
         font-family: "arial";
       }
 
+      #timer {
+        width: 500px;
+        height: 150px;
+        min-width: 500px;
+        min-height: 150px;
+        border: 1px solid #999;
+        padding: 20px;
+        font-size: 100px;
+        display: flex;
+        align-content: center;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        -webkit-text-stroke: 2px black;
+        -webkit-text-fill-color: #9146ff;
+      }
+
       /* body {
         color: #ddd;
         background-color: #000;
@@ -25,83 +42,146 @@
         padding: 10px;
       }
 
-      .chat-container,
-      .log-container {
-        width: 50%;
-      }
-
-      #chat {
+      #chat,
+      #syslog {
         height: 10em;
         overflow-y: scroll;
-      }
-
-      #syslog {
         word-wrap: break-word;
+        display: flex;
+        flex-direction: column-reverse;
       }
 
-      .logs {
+      .vert {
         display: flex;
         flex-direction: row;
+        justify-content: space-between;
+      }
+
+      .log-container {
+        width: 45%;
+        margin-right: 10px;
+        min-width: 400px;
+      }
+
+      .right {
+        flex-direction: column;
+        width: 52%;
+      }
+
+      .heading {
+        width: 100%;
+        margin: 5px;
+      }
+
+      .heading h1,
+      .heading p {
+        margin: 5px;
       }
     </style>
   </head>
   <body>
-    <h1>Subathon Counter</h1>
-
-    <div id="timer">Time goes here</div>
-
-    <div id="settings" class="section">
-      <h2>Settings</h2>
-      <div id="misc_settings">
-        <label>Set time:</label>
-        <input id="time_value" />
-        <button>Ok</button>
-        <p>This will override the current time.</p>
-      </div>
-      <div id="chat_settings" class="subsection">
-        <label for="twitch_username">Twitch username</label>
-        <input type="text" id="twitch_username" />
-        <label>Channel</label>
-        <input id="channel" type="text" />
-        <button id="connect">Connect</button>
+    <div class="vert">
+      <div id="timer">Time</div>
+      <div class="heading">
+        <h1>Subathon ChronoMega Totally 110% Polished™ Timer</h1>
+        <p>
+          Counts sub, resub, and subgift time automatically. Requires putting in
+          donations manually. Has an audit log.
+        </p>
+        <div id="end_datetime">end time here</div>
       </div>
     </div>
 
-    <div id="" class="section">
-      <label for="add_donation">Add donation:</label>
-      <input id="donation" />
-      <button>Ok</button>
-    </div>
-
-    <div class="logs">
+    <div class="vert">
       <div class="log-container section">
         <h2>Log</h2>
+        <div id="" class="section">
+          <label for="add_donation">Add donation:</label>
+          <input id="donation" />
+          <button>Ok</button>
+        </div>
         <button id="clear_log">Clear</button>
         <div id="log" class="section"></div>
       </div>
 
-      <div class="chat-container section">
-        <h2>Chat</h2>
-        <div id="chat" class="section"></div>
+      <div class="right">
+        <div id="settings" class="section">
+          <h2>Settings</h2>
+          <div id="misc_settings">
+            <label>Set time:</label>
+            <input
+              id="time_hours"
+              type="number"
+              interval="1"
+              min="0"
+              default="0"
+            />
+            <span>h</span>
+            <input
+              id="time_minutes"
+              type="number"
+              interval="1"
+              min="0"
+              max="59"
+              default="0"
+            />
+            <span>m</span>
+            <input
+              id="time_seconds"
+              type="number"
+              interval="1"
+              min="0"
+              max="59"
+              default="0"
+            />
+            <span>s</span>
+            <button id="time_button">Ok</button>
+            <p>This will override the current time.</p>
+          </div>
+
+          <div id="chat_settings" class="subsection">
+            <label for="twitch_username">Twitch username</label>
+            <input type="text" id="twitch_username" />
+            <label>Channel</label>
+            <input id="channel" type="text" />
+            <button id="connect">Connect</button>
+          </div>
+        </div>
+
+        <div class="chat-container section">
+          <h2>Chat</h2>
+          <div id="chat" class="section"></div>
+        </div>
+
+        <h2>Unhandled Log</h2>
+        <div id="other_log" class="section"></div>
+
+        <h2>System log</h2>
+        <div id="syslog" class="section"></div>
       </div>
     </div>
 
-    <h2>System log</h2>
-    <div id="syslog" class="section"></div>
-    <div id="other_log" class="section"></div>
-
     <script defer>
+      "use strict";
+
       const clientId = "fy593zn2gsdd1zdg2wyxyt3b2ummz0";
       const redirectUri = "http://localhost:3000";
       const scope = "chat:read";
       const oauthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
 
+      const chats = [];
+      const logs = [];
+      const syslogs = [];
+      const unhandledLogs = [];
+
       function get_oauth_token() {}
 
+      let secondsPerSubPoint = 60 * 4;
       let oauthToken = null;
       let channel = null;
       let username = null;
       let socket = null;
+      let timeLeftInSeconds = 0;
 
       const hash = document.location.hash;
       const match = hash.match(/access_token=([^&]*)/);
@@ -137,7 +217,7 @@
       }
 
       function timestamp() {
-        date = new Date();
+        const date = new Date();
         return date.toLocaleTimeString();
       }
 
@@ -146,9 +226,9 @@
       }
 
       function messageToObject(msg) {
-        [main, chatMessage] = msg.split(`PRIVMSG #${channel} :`);
+        const [main, chatMessage] = msg.split(`PRIVMSG #${channel} :`);
 
-        obj = msg
+        const obj = msg
           .split(";")
           .map((m) => m.split("="))
           .reduce((acc, [key, val]) => {
@@ -157,14 +237,67 @@
           }, {});
 
         obj.chatMessage = chatMessage;
+        obj.plan = subPlan(obj);
 
         return obj;
       }
 
-      function formatResub(message) {
-        return `${timestamp()} ${message.display_name}: ${
-          message.msg_param_cumulative_months
-        } month resub`;
+      function subPlan(message) {
+        if (message.msg_param_sub_plan === "Prime") {
+          return {
+            name: "Prime",
+            weight: 1,
+          };
+        } else if (message.msg_param_sub_plan === "1000") {
+          return {
+            name: "Tier 1",
+            weight: 1,
+          };
+        } else if (message.msg_param_sub_plan === "2000") {
+          return {
+            name: "Tier 2",
+            weight: 2,
+          };
+        } else if (message.msg_param_sub_plan === "3000") {
+          return {
+            name: "Tier 3",
+            weight: 5,
+          };
+        } else {
+          return {
+            name:
+              message.msg_param_sub_plan + " (unknown sub plan; not counted.)",
+            weight: 0,
+          };
+        }
+      }
+
+      function formatSub(message, previous, added, current) {
+        return `${timestamp()} ${message.msg_param_cumulative_months} month ${
+          message.plan.name
+        } ${message.msg_id} from ${
+          message.display_name
+        }. ${previous} + ${formatTime(added)} = ${current}`;
+      }
+
+      function timeToAdd(message) {
+        return message.plan.weight * secondsPerSubPoint;
+      }
+
+      function handleSub(message) {
+        const added = timeToAdd(message);
+        const previous = formatTime(timeLeftInSeconds);
+        addSeconds(added);
+        const current = formatTime(timeLeftInSeconds);
+        const displayText = formatSub(message, previous, added, current);
+        const el = document.createElement("div");
+        el.classList.add("log_message");
+        el.textContent = displayText;
+        document.getElementById("log").prepend(el);
+      }
+
+      function addSeconds(seconds) {
+        return (timeLeftInSeconds += seconds);
       }
 
       function processLine(rawMessage, socket) {
@@ -175,43 +308,41 @@
           return;
         }
 
-        message = messageToObject(rawMessage);
+        const message = messageToObject(rawMessage);
 
         if (message.chatMessage) {
-          displayText = formatChatMessage(message);
-          el = document.createElement("div");
+          const displayText = formatChatMessage(message);
+          const el = document.createElement("div");
           el.classList.add("chat_message");
           el.textContent = displayText;
           document.getElementById("chat").prepend(el);
           return;
         }
 
-        console.log("incoming event", rawMessage);
-
-        if (message.msg_id === "resub") {
+        if (["sub", "resub"].includes(message.msg_id)) {
           console.log("resubber! ^_^");
-          displayText = formatResub(message);
-          el = document.createElement("div");
-          el.classList.add("log_message");
-          el.textContent = displayText;
-          document.getElementById("log").prepend(el);
+          console.log(message);
+          handleSub(message);
           return;
+        }
+
+        if (!rawMessage.startsWith("@ban-duration")) {
+          console.log("incoming event", rawMessage);
         }
 
         if (isUserNotice(rawMessage)) {
           console.log("user notice");
           console.log(message);
-          el = document.createElement("div");
+          const el = document.createElement("div");
           el.classList.add("log_message");
           el.textContent = rawMessage;
           document.getElementById("other_log").prepend(el);
           return;
         }
 
-        console.log("other message");
-        el = document.createElement("div");
+        const el = document.createElement("div");
         el.classList.add("syslog_message");
-        el.textContent = rawMessage;
+        el.textContent = timestamp() + " " + rawMessage;
         document.getElementById("syslog").prepend(el);
       }
 
@@ -238,9 +369,9 @@
           console.log("nickname", username, "channel", channel);
 
           socket.send(`PASS oauth:${oauthToken}`);
-          socket.send("NICK " + username);
+          socket.send("NICK " + username.toLowerCase());
           socket.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
-          socket.send("JOIN #" + channel);
+          socket.send("JOIN #" + channel.toLowerCase());
         });
 
         socket.addEventListener("message", (event) =>
@@ -250,7 +381,56 @@
         socket.addEventListener("error", (event) => processError(event.data));
       }
 
+      function setTime() {
+        const hours = Number(document.getElementById("time_hours").value);
+        const minutes = Number(document.getElementById("time_minutes").value);
+        const seconds = Number(document.getElementById("time_seconds").value);
+
+        timeLeftInSeconds = (hours * 60 + minutes) * 60 + seconds;
+      }
+
+      function formatEnd(seconds) {
+        const msLeft = seconds * 1000;
+        const end = new Date(Date.now() + msLeft);
+        return `Ending at ${end.toLocaleDateString()} ${end.toLocaleTimeString()}`;
+      }
+
+      const secondInMS = 1000;
+      const minuteInMS = secondInMS * 60;
+      const hourInMS = minuteInMS * 60;
+
+      function padLeft(item) {
+        if ((item + "").length < 2) {
+          return "0" + item;
+        }
+        return item;
+      }
+
+      function formatTime(totalSeconds) {
+        const ms = totalSeconds * secondInMS;
+        const hours = Math.floor(ms / hourInMS);
+        const minutes = padLeft(Math.floor((ms % hourInMS) / minuteInMS));
+        const seconds = padLeft(Math.floor((ms % minuteInMS) / secondInMS));
+
+        return `${hours}:${minutes}:${seconds}`;
+      }
+
+      function tick() {
+        if (timeLeftInSeconds >= 0) {
+          document.getElementById("timer").innerHTML =
+            formatTime(timeLeftInSeconds);
+
+          document.getElementById("end_datetime").textContent =
+            formatEnd(timeLeftInSeconds);
+
+          timeLeftInSeconds--;
+        }
+      }
+
+      let interval = setInterval(tick, 1000);
+
       document.getElementById("connect").onclick = connect;
+      document.getElementById("time_button").onclick = setTime;
     </script>
   </body>
 </html>
