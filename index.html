@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chronomega</title>
+    <style>
+      body {
+        padding-left: 10px;
+        font-family: "arial";
+      }
+
+      /* body {
+        color: #ddd;
+        background-color: #000;
+      }
+
+      input {
+        color: #deee;
+        background-color: #333;
+      } */
+
+      .section {
+        border: 1px solid #999;
+        margin: 25px 0px;
+        padding: 10px;
+      }
+
+      .chat-container,
+      .log-container {
+        width: 50%;
+      }
+
+      #chat {
+        height: 10em;
+        overflow-y: scroll;
+      }
+
+      #syslog {
+        word-wrap: break-word;
+      }
+
+      .logs {
+        display: flex;
+        flex-direction: row;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Subathon Counter</h1>
+
+    <div id="timer">Time goes here</div>
+
+    <div id="settings" class="section">
+      <h2>Settings</h2>
+      <div id="misc_settings">
+        <label>Set time:</label>
+        <input id="time_value" />
+        <button>Ok</button>
+        <p>This will override the current time.</p>
+      </div>
+      <div id="chat_settings" class="subsection">
+        <label for="twitch_username">Twitch username</label>
+        <input type="text" id="twitch_username" />
+        <label>Channel</label>
+        <input id="channel" type="text" />
+        <button id="connect">Connect</button>
+      </div>
+    </div>
+
+    <div id="" class="section">
+      <label for="add_donation">Add donation:</label>
+      <input id="donation" />
+      <button>Ok</button>
+    </div>
+
+    <div class="logs">
+      <div class="log-container section">
+        <h2>Log</h2>
+        <button id="clear_log">Clear</button>
+        <div id="log" class="section"></div>
+      </div>
+
+      <div class="chat-container section">
+        <h2>Chat</h2>
+        <div id="chat" class="section"></div>
+      </div>
+    </div>
+
+    <h2>System log</h2>
+    <div id="syslog" class="section"></div>
+    <div id="other_log" class="section"></div>
+
+    <script defer>
+      const clientId = "fy593zn2gsdd1zdg2wyxyt3b2ummz0";
+      const redirectUri = "http://localhost:3000";
+      const scope = "chat:read";
+      const oauthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
+
+      function get_oauth_token() {}
+
+      let oauthToken = null;
+      let channel = null;
+      let username = null;
+      let socket = null;
+
+      const hash = document.location.hash;
+      const match = hash.match(/access_token=([^&]*)/);
+
+      if (match) {
+        oauthToken = match[1];
+        console.log(`oauth token: ${oauthToken}`);
+      }
+
+      if (!oauthToken) {
+        document.body.innerHTML = `
+        <h2> No auth token found. </h2>
+        <a href="${oauthUrl}">Click here to log in</a>
+        <p>
+          This will create an Oauth token that only has permissions to read chat. Feel free to use any Twitch account of yours for this -- it does not have to be your main account.
+        </p>
+        `;
+      }
+
+      function processError(data) {
+        window.alert(
+          "Something went wrong with the connection. See console for details."
+        );
+        console.log(data);
+      }
+
+      function isChatMessage(msg) {
+        return msg.includes("tmi.twitch.tv PRIVMSG #");
+      }
+
+      function isUserNotice(msg) {
+        return msg.includes("tmi.twitch.tv USERNOTICE #");
+      }
+
+      function timestamp() {
+        date = new Date();
+        return date.toLocaleTimeString();
+      }
+
+      function formatChatMessage(message) {
+        return `${timestamp()} ${message.display_name}: ${message.chatMessage}`;
+      }
+
+      function messageToObject(msg) {
+        [main, chatMessage] = msg.split(`PRIVMSG #${channel} :`);
+
+        obj = msg
+          .split(";")
+          .map((m) => m.split("="))
+          .reduce((acc, [key, val]) => {
+            acc[key.replace(/-/g, "_")] = val;
+            return acc;
+          }, {});
+
+        obj.chatMessage = chatMessage;
+
+        return obj;
+      }
+
+      function formatResub(message) {
+        return `${timestamp()} ${message.display_name}: ${
+          message.msg_param_cumulative_months
+        } month resub`;
+      }
+
+      function processLine(rawMessage, socket) {
+        // keep connection open. See https://dev.twitch.tv/docs/irc/guide/#connecting-to-twitch-irc
+        if (rawMessage.startsWith("PING")) {
+          console.log("sending a pong");
+          socket.send("PONG :tmi.twitch.tv");
+          return;
+        }
+
+        message = messageToObject(rawMessage);
+
+        if (message.chatMessage) {
+          displayText = formatChatMessage(message);
+          el = document.createElement("div");
+          el.classList.add("chat_message");
+          el.textContent = displayText;
+          document.getElementById("chat").prepend(el);
+          return;
+        }
+
+        console.log("incoming event", rawMessage);
+
+        if (message.msg_id === "resub") {
+          console.log("resubber! ^_^");
+          displayText = formatResub(message);
+          el = document.createElement("div");
+          el.classList.add("log_message");
+          el.textContent = displayText;
+          document.getElementById("log").prepend(el);
+          return;
+        }
+
+        if (isUserNotice(rawMessage)) {
+          console.log("user notice");
+          console.log(message);
+          el = document.createElement("div");
+          el.classList.add("log_message");
+          el.textContent = rawMessage;
+          document.getElementById("other_log").prepend(el);
+          return;
+        }
+
+        console.log("other message");
+        el = document.createElement("div");
+        el.classList.add("syslog_message");
+        el.textContent = rawMessage;
+        document.getElementById("syslog").prepend(el);
+      }
+
+      // connect to chat
+      // https://dev.twitch.tv/docs/irc/guide/
+      // https://ircv3.net/specs/extensions/websocket#client-example
+
+      function connect() {
+        if (socket) {
+          socket.close();
+        }
+
+        socket = new WebSocket(
+          "wss://irc-ws.chat.twitch.tv:443",
+          "text.ircv3.net"
+        );
+
+        // let socket = new WebSocket("wss://irc-ws.chat.twitch.tv:443", [
+        //   "text.ircv3.net",
+        // ]);
+        socket.addEventListener("open", () => {
+          username = document.getElementById("twitch_username").value;
+          channel = document.getElementById("channel").value;
+          console.log("nickname", username, "channel", channel);
+
+          socket.send(`PASS oauth:${oauthToken}`);
+          socket.send("NICK " + username);
+          socket.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+          socket.send("JOIN #" + channel);
+        });
+
+        socket.addEventListener("message", (event) =>
+          processLine(event.data, socket)
+        );
+
+        socket.addEventListener("error", (event) => processError(event.data));
+      }
+
+      document.getElementById("connect").onclick = connect;
+    </script>
+  </body>
+</html>
