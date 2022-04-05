@@ -2,11 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Chronomega</title>
+    <title>ChronoMega</title>
+
     <style>
       body {
         padding-left: 10px;
-        font-family: "arial";
+        font-family: arial;
       }
 
       #timer {
@@ -26,6 +27,28 @@
         -webkit-text-fill-color: #9146ff;
       }
 
+      .time-input,
+      .donation-input {
+        width: 2em;
+        -webkit-appearance: none;
+        -moz-appearance: textfield;
+      }
+
+      .time-add-block {
+        margin: 10px;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+      }
+
+      .donation-input {
+        width: 3em;
+      }
+
+      #log-controls {
+        display: flex;
+        justify-content: space-between;
+      }
       /* body {
         color: #ddd;
         background-color: #000;
@@ -42,8 +65,14 @@
         padding: 10px;
       }
 
+      .subsection {
+        border: 1px solid #999;
+        padding: 10px;
+      }
+
       #chat,
-      #syslog {
+      #syslog,
+      #other_log {
         height: 10em;
         overflow-y: scroll;
         word-wrap: break-word;
@@ -58,14 +87,44 @@
       }
 
       .log-container {
-        width: 45%;
+        width: 55%;
         margin-right: 10px;
-        min-width: 400px;
+        min-width: 600px;
+      }
+
+      .log_message {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+      }
+
+      .log_message_time {
+        margin-left: 10px;
+      }
+
+      .chat-settings {
+        margin: 10px 0;
+        display: flex;
+        flex-direction: row;
+      }
+      .chat-inputs {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .input-with-label {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+      }
+
+      .input-with-label input {
+        margin: 0 5px;
       }
 
       .right {
         flex-direction: column;
-        width: 52%;
+        width: 47%;
       }
 
       .heading {
@@ -77,30 +136,48 @@
       .heading p {
         margin: 5px;
       }
+
+      #clear_log {
+        visibility: hidden;
+      }
     </style>
   </head>
   <body>
     <div class="vert">
-      <div id="timer">Time</div>
+      <div id="timer">0:00:00</div>
       <div class="heading">
         <h1>Subathon ChronoMega Totally 110% Polished™ Timer</h1>
         <p>
           Counts sub, resub, and subgift time automatically. Requires putting in
           donations manually. Has an audit log.
         </p>
-        <div id="end_datetime">end time here</div>
+        <p id="end_datetime">Current time would end at:</p>
       </div>
     </div>
 
     <div class="vert">
       <div class="log-container section">
         <h2>Log</h2>
-        <div id="" class="section">
-          <label for="add_donation">Add donation:</label>
-          <input id="donation" />
-          <button>Ok</button>
+        <div id="log-controls" class="section">
+          <div>
+            <div class="time-add-block input-with-label">
+              <label for="add_time_minutes">Add time (minutes):</label>
+              <input id="add_time_minutes" class="time-input" type="number" />
+              <button id="add_time_button">Add</button>
+            </div>
+            <div class="time-add-block input-with-label">
+              <label for="add_donation">Add donation:</label>
+              <input
+                id="donation"
+                class="donation-input"
+                type="number"
+                interval="0.01"
+              />
+              <button id="add_donation_button">Add</button>
+            </div>
+          </div>
+          <button id="clear_log">Clear Log</button>
         </div>
-        <button id="clear_log">Clear</button>
         <div id="log" class="section"></div>
       </div>
 
@@ -111,53 +188,56 @@
             <label>Set time:</label>
             <input
               id="time_hours"
+              class="time-input"
               type="number"
               interval="1"
               min="0"
               default="0"
             />
-            <span>h</span>
+            <span>:</span>
             <input
               id="time_minutes"
+              class="time-input"
               type="number"
               interval="1"
               min="0"
               max="59"
               default="0"
             />
-            <span>m</span>
+            <span>:</span>
             <input
               id="time_seconds"
+              class="time-input"
               type="number"
               interval="1"
               min="0"
               max="59"
               default="0"
             />
-            <span>s</span>
             <button id="time_button">Ok</button>
-            <p>This will override the current time.</p>
           </div>
 
-          <div id="chat_settings" class="subsection">
-            <label for="twitch_username">Twitch username</label>
-            <input type="text" id="twitch_username" />
-            <label>Channel</label>
-            <input id="channel" type="text" />
+          <div class="chat-settings" class="subsection">
+            <div class="chat-inputs">
+              <div class="input-with-label">
+                <label for="twitch_username">Twitch username:</label>
+                <input type="text" id="twitch_username" />
+              </div>
+
+              <div class="input-with-label">
+                <label>Channel:</label>
+                <input id="channel" type="text" />
+              </div>
+            </div>
             <button id="connect">Connect</button>
           </div>
-        </div>
 
-        <div class="chat-container section">
           <h2>Chat</h2>
           <div id="chat" class="section"></div>
+
+          <h2>System log</h2>
+          <div id="syslog" class="section"></div>
         </div>
-
-        <h2>Unhandled Log</h2>
-        <div id="other_log" class="section"></div>
-
-        <h2>System log</h2>
-        <div id="syslog" class="section"></div>
       </div>
     </div>
 
@@ -206,10 +286,6 @@
           "Something went wrong with the connection. See console for details."
         );
         console.log(data);
-      }
-
-      function isChatMessage(msg) {
-        return msg.includes("tmi.twitch.tv PRIVMSG #");
       }
 
       function isUserNotice(msg) {
@@ -272,28 +348,67 @@
         }
       }
 
-      function formatSub(message, previous, added, current) {
-        return `${timestamp()} ${message.msg_param_cumulative_months} month ${
-          message.plan.name
-        } ${message.msg_id} from ${
-          message.display_name
-        }. ${previous} + ${formatTime(added)} = ${current}`;
+      function formatSub(message) {
+        return `${message.display_name} - ${message.msg_param_cumulative_months} month ${message.plan.name} ${message.msg_id}`;
+      }
+
+      function formatSubgift(message) {
+        return `${message.display_name} gifted a ${message.plan.name} sub to ${message.msg_param_recipient_display_name}`;
+      }
+
+      function formatBits(message) {
+        return `${message.display_name} cheered with ${message.bits} bits`;
       }
 
       function timeToAdd(message) {
-        return message.plan.weight * secondsPerSubPoint;
+        let months = 1;
+        if (message.msg_param_gift_months) {
+          months = message.msg_param_gift_months;
+        }
+        return message.plan.weight * secondsPerSubPoint * months;
+      }
+
+      function addLog(logContent, rightLogContent = "") {
+        const el = document.createElement("div");
+        el.classList.add("log_message");
+        el.innerHTML = `
+          <div>
+            ${timestamp()} ${logContent}
+          </div>
+          ${rightLogContent}`;
+        document.getElementById("log").prepend(el);
+      }
+
+      function addTimeAndLog(logContent, seconds) {
+        const previous = formatTime(timeLeftInSeconds);
+        addSeconds(seconds);
+        const current = formatTime(timeLeftInSeconds);
+
+        const rightLogContent = `<div class="log_message_time">
+              ${previous} + ${formatTime(seconds)} = ${current}
+          </div>`;
+
+        addLog(logContent, rightLogContent);
       }
 
       function handleSub(message) {
-        const added = timeToAdd(message);
-        const previous = formatTime(timeLeftInSeconds);
-        addSeconds(added);
-        const current = formatTime(timeLeftInSeconds);
-        const displayText = formatSub(message, previous, added, current);
-        const el = document.createElement("div");
-        el.classList.add("log_message");
-        el.textContent = displayText;
-        document.getElementById("log").prepend(el);
+        const logContent = formatSub(message);
+        const seconds = timeToAdd(message);
+        addTimeAndLog(logContent, seconds);
+      }
+
+      function handleSubgift(message) {
+        const logContent = formatSubgift(message);
+        const seconds = timeToAdd(message);
+        addTimeAndLog(logContent, seconds);
+      }
+
+      function handleBits(message) {
+        const bits = Number(message.bits);
+        const subPointEquivalent = bits / 500;
+        const secondsToAdd = secondsPerSubPoint * subPointEquivalent;
+
+        addTimeAndLog(formatBits(message), secondsToAdd);
       }
 
       function addSeconds(seconds) {
@@ -308,36 +423,45 @@
           return;
         }
 
+        if (rawMessage.includes("JOIN #" + channel)) {
+          addLog("Connected to #" + channel);
+        }
+
         const message = messageToObject(rawMessage);
 
         if (message.chatMessage) {
           const displayText = formatChatMessage(message);
           const el = document.createElement("div");
           el.classList.add("chat_message");
-          el.textContent = displayText;
+          el.innerHTML = displayText;
           document.getElementById("chat").prepend(el);
+
+          if (message.bits) {
+            handleBits(message);
+            console.log("bitMessage", message);
+          }
           return;
         }
 
         if (["sub", "resub"].includes(message.msg_id)) {
-          console.log("resubber! ^_^");
-          console.log(message);
+          console.log("resubber! ^_^", message);
           handleSub(message);
+          return;
+        }
+
+        if (["subgift", "anonsubgift"].includes(message.msg_id)) {
+          console.log("subgift! :D", message);
+          handleSubgift(message);
+          return;
+        }
+
+        if (isUserNotice(rawMessage)) {
+          console.log("user notice", message);
           return;
         }
 
         if (!rawMessage.startsWith("@ban-duration")) {
           console.log("incoming event", rawMessage);
-        }
-
-        if (isUserNotice(rawMessage)) {
-          console.log("user notice");
-          console.log(message);
-          const el = document.createElement("div");
-          el.classList.add("log_message");
-          el.textContent = rawMessage;
-          document.getElementById("other_log").prepend(el);
-          return;
         }
 
         const el = document.createElement("div");
@@ -352,6 +476,7 @@
 
       function connect() {
         if (socket) {
+          addLog("Closing connection.");
           socket.close();
         }
 
@@ -364,14 +489,16 @@
         //   "text.ircv3.net",
         // ]);
         socket.addEventListener("open", () => {
-          username = document.getElementById("twitch_username").value;
-          channel = document.getElementById("channel").value;
+          username = document
+            .getElementById("twitch_username")
+            .value.toLowerCase();
+          channel = document.getElementById("channel").value.toLowerCase();
           console.log("nickname", username, "channel", channel);
 
           socket.send(`PASS oauth:${oauthToken}`);
-          socket.send("NICK " + username.toLowerCase());
+          socket.send("NICK " + username);
           socket.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
-          socket.send("JOIN #" + channel.toLowerCase());
+          socket.send("JOIN #" + channel);
         });
 
         socket.addEventListener("message", (event) =>
@@ -386,13 +513,22 @@
         const minutes = Number(document.getElementById("time_minutes").value);
         const seconds = Number(document.getElementById("time_seconds").value);
 
+        const oldTime = formatTime(timeLeftInSeconds);
+
         timeLeftInSeconds = (hours * 60 + minutes) * 60 + seconds;
+        addLog(
+          "Time left set to " +
+            formatTime(timeLeftInSeconds) +
+            " from " +
+            oldTime,
+          formatTime(timeLeftInSeconds)
+        );
       }
 
       function formatEnd(seconds) {
         const msLeft = seconds * 1000;
         const end = new Date(Date.now() + msLeft);
-        return `Ending at ${end.toLocaleDateString()} ${end.toLocaleTimeString()}`;
+        return `Current time would end at: ${end.toLocaleDateString()} ${end.toLocaleTimeString()}`;
       }
 
       const secondInMS = 1000;
@@ -406,13 +542,42 @@
         return item;
       }
 
+      function atLeastZero(val) {
+        return val < 0 ? 0 : val;
+      }
+
       function formatTime(totalSeconds) {
+        totalSeconds < 0 ? 0 : totalSeconds;
         const ms = totalSeconds * secondInMS;
-        const hours = Math.floor(ms / hourInMS);
-        const minutes = padLeft(Math.floor((ms % hourInMS) / minuteInMS));
-        const seconds = padLeft(Math.floor((ms % minuteInMS) / secondInMS));
+        const hours = atLeastZero(Math.floor(ms / hourInMS));
+        const minutes = padLeft(
+          atLeastZero(Math.floor((ms % hourInMS) / minuteInMS))
+        );
+        const seconds = padLeft(
+          atLeastZero(Math.floor((ms % minuteInMS) / secondInMS))
+        );
 
         return `${hours}:${minutes}:${seconds}`;
+      }
+
+      function addTimeFromUI() {
+        const minutes = Number(
+          document.getElementById("add_time_minutes").value
+        );
+        if (!isNaN(minutes)) {
+          addTimeAndLog(`Added ${minutes} minute(s) to timer.`, minutes * 60);
+        }
+      }
+
+      function addDonation() {
+        const amount = Number(document.getElementById("donation").value);
+        const subPointEquivalent = amount / 5.0;
+        const secondsToAdd = secondsPerSubPoint * subPointEquivalent;
+        const displayAmount = amount.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        addTimeAndLog(`Added donation of $${displayAmount}`, secondsToAdd);
       }
 
       function tick() {
@@ -427,10 +592,20 @@
         }
       }
 
+      function clearLog() {
+        const ok = window.confirm("Are you sure you want to clear the log?");
+        if (ok) {
+          window.alert("not yet implemented!");
+        }
+      }
+
       let interval = setInterval(tick, 1000);
 
       document.getElementById("connect").onclick = connect;
       document.getElementById("time_button").onclick = setTime;
+      document.getElementById("add_time_button").onclick = addTimeFromUI;
+      document.getElementById("add_donation_button").onclick = addDonation;
+      document.getElementById("clear_log").onclick = clearLog;
     </script>
   </body>
 </html>
