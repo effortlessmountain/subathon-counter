@@ -245,7 +245,7 @@
       "use strict";
 
       const clientId = "fy593zn2gsdd1zdg2wyxyt3b2ummz0";
-      const redirectUri = "http://localhost:3000";
+      const redirectUri = window.location.origin + window.location.pathname;
       const scope = "chat:read";
       const oauthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
 
