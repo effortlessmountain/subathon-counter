@@ -287,10 +287,18 @@
       }
 
       function processError(data) {
-        window.alert(
-          "Something went wrong with the connection. See console for details."
-        );
-        console.log(data);
+        const logText = ` 
+        <br/> --------------
+        <br/> Something went wrong with the connection. See console for details.
+        <br/> ---------------
+        `;
+
+        const el = document.createElement("div");
+        el.classList.add("syslog_message");
+        el.innerHTML = "<br/><br/>" + timestamp() + " " + logText;
+        document.getElementById("syslog").prepend(el);
+
+        console.log("Connection error", data);
       }
 
       function isUserNotice(msg) {
