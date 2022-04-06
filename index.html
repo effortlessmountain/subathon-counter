@@ -614,7 +614,7 @@
       }
 
       function tick() {
-        if (timeLeftInMS > 0) {
+        if (timeLeftInMS() > 0) {
           document.getElementById("timer").innerHTML = formatTime(
             timeLeftInMS()
           );
