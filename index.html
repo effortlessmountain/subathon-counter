@@ -261,7 +261,7 @@
       let channel = null;
       let username = null;
       let socket = null;
-      let timeLeftInSeconds = 0;
+      let end = Date.now();
 
       const hash = document.location.hash;
       const match = hash.match(/access_token=([^&]*)/);
@@ -279,6 +279,11 @@
           This will create an Oauth token that only has permissions to read chat. Feel free to use any Twitch account of yours for this -- it does not have to be your main account.
         </p>
         `;
+      }
+
+      function timeLeftInMS() {
+        const timeLeft = end - Date.now();
+        return timeLeft < 0 ? 0 : timeLeft;
       }
 
       function processError(data) {
@@ -380,12 +385,13 @@
       }
 
       function addTimeAndLog(logContent, seconds) {
-        const previous = formatTime(timeLeftInSeconds);
+        const previous = formatTime(timeLeftInMS());
         addSeconds(seconds);
-        const current = formatTime(timeLeftInSeconds);
+        const change = formatTimeWithSign(seconds * 1000);
+        const current = formatTime(timeLeftInMS());
 
         const rightLogContent = `<div class="log_message_time">
-              ${previous} + ${formatTime(seconds)} = ${current}
+              ${previous} ${change} = ${current}
           </div>`;
 
         addLog(logContent, rightLogContent);
@@ -412,7 +418,22 @@
       }
 
       function addSeconds(seconds) {
-        return (timeLeftInSeconds += seconds);
+        addTimeInMS(seconds * 1000);
+      }
+
+      function addTimeInMS(milliseconds) {
+        const now = Date.now();
+        if (end - now < 0) {
+          end = now + milliseconds;
+        } else {
+          end += milliseconds;
+        }
+
+        updateEndDisplay();
+      }
+
+      function updateEndDisplay() {
+        document.getElementById("end_datetime").textContent = formatEnd();
       }
 
       function processLine(rawMessage, socket) {
@@ -513,22 +534,19 @@
         const minutes = Number(document.getElementById("time_minutes").value);
         const seconds = Number(document.getElementById("time_seconds").value);
 
-        const oldTime = formatTime(timeLeftInSeconds);
+        const oldTime = formatTime(timeLeftInMS());
 
-        timeLeftInSeconds = (hours * 60 + minutes) * 60 + seconds;
+        end = Date.now() + ((hours * 60 + minutes) * 60 + seconds) * 1000;
+        updateEndDisplay();
         addLog(
-          "Time left set to " +
-            formatTime(timeLeftInSeconds) +
-            " from " +
-            oldTime,
-          formatTime(timeLeftInSeconds)
+          "Time left set to " + formatTime(timeLeftInMS()) + " from " + oldTime,
+          formatTime(timeLeftInMS())
         );
       }
 
-      function formatEnd(seconds) {
-        const msLeft = seconds * 1000;
-        const end = new Date(Date.now() + msLeft);
-        return `Current time would end at: ${end.toLocaleDateString()} ${end.toLocaleTimeString()}`;
+      function formatEnd() {
+        const endDate = new Date(end);
+        return `Current time would end at: ${endDate.toLocaleDateString()} ${endDate.toLocaleTimeString()}`;
       }
 
       const secondInMS = 1000;
@@ -542,20 +560,16 @@
         return item;
       }
 
-      function atLeastZero(val) {
-        return val < 0 ? 0 : val;
+      function formatTimeWithSign(milliseconds) {
+        const sign = milliseconds < 0 ? "-" : "+";
+        return sign + " " + formatTime(milliseconds);
       }
 
-      function formatTime(totalSeconds) {
-        totalSeconds < 0 ? 0 : totalSeconds;
-        const ms = totalSeconds * secondInMS;
-        const hours = atLeastZero(Math.floor(ms / hourInMS));
-        const minutes = padLeft(
-          atLeastZero(Math.floor((ms % hourInMS) / minuteInMS))
-        );
-        const seconds = padLeft(
-          atLeastZero(Math.floor((ms % minuteInMS) / secondInMS))
-        );
+      function formatTime(milliseconds) {
+        const ms = Math.abs(milliseconds);
+        const hours = Math.trunc(ms / hourInMS);
+        const minutes = padLeft(Math.trunc((ms % hourInMS) / minuteInMS));
+        const seconds = padLeft(Math.trunc((ms % minuteInMS) / secondInMS));
 
         return `${hours}:${minutes}:${seconds}`;
       }
@@ -581,15 +595,8 @@
       }
 
       function tick() {
-        if (timeLeftInSeconds >= 0) {
-          document.getElementById("timer").innerHTML =
-            formatTime(timeLeftInSeconds);
-
-          document.getElementById("end_datetime").textContent =
-            formatEnd(timeLeftInSeconds);
-
-          timeLeftInSeconds--;
-        }
+        document.getElementById("timer").innerHTML = formatTime(timeLeftInMS());
+        updateEndDisplay();
       }
 
       function clearLog() {
@@ -599,7 +606,7 @@
         }
       }
 
-      let interval = setInterval(tick, 1000);
+      let interval = setInterval(tick, 500);
 
       document.getElementById("connect").onclick = connect;
       document.getElementById("time_button").onclick = setTime;
