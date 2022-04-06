@@ -241,6 +241,17 @@
       </div>
     </div>
 
+    <div>
+      Click
+      <a
+        href="https://github.com/effortlessmountain/subathon-counter/tree/gh-pages"
+        target="_blank"
+        rel="noopener"
+        >here</a
+      >
+      to view the source code.
+    </div>
+
     <script defer>
       "use strict";
 
@@ -603,8 +614,12 @@
       }
 
       function tick() {
-        document.getElementById("timer").innerHTML = formatTime(timeLeftInMS());
-        updateEndDisplay();
+        if (timeLeftInMS > 0) {
+          document.getElementById("timer").innerHTML = formatTime(
+            timeLeftInMS()
+          );
+          updateEndDisplay();
+        }
       }
 
       function clearLog() {
